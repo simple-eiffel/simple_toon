@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>simple_toon - TOON Encoder/Decoder for Eiffel</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --card-bg: #16213e;
+            --accent: #e94560;
+            --text: #eee;
+            --text-muted: #aaa;
+            --code-bg: #0f0f1a;
+            --border: #333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-color);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { font-size: 3rem; margin-bottom: 0.5rem; }
+        h1 span { color: var(--accent); }
+        .tagline { color: var(--text-muted); font-size: 1.2rem; }
+        .badges { margin-top: 1rem; }
+        .badges img { margin: 0 0.25rem; }
+        section { padding: 2rem 0; }
+        h2 {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .card h3 { color: var(--accent); margin-bottom: 0.5rem; }
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+        }
+        code { font-family: 'Consolas', 'Monaco', monospace; }
+        .inline-code {
+            background: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+        th { background: var(--card-bg); color: var(--accent); }
+        a { color: var(--accent); }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .comparison h4 { margin-bottom: 0.5rem; color: var(--text-muted); }
+        @media (max-width: 768px) {
+            .comparison { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>simple_<span>toon</span></h1>
+            <p class="tagline">TOON (Token-Oriented Object Notation) Encoder/Decoder for Eiffel</p>
+            <div class="badges">
+                <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
+                <img src="https://img.shields.io/badge/Eiffel-25.02-blue.svg" alt="Eiffel 25.02">
+                <img src="https://img.shields.io/badge/DbC-enforced-orange.svg" alt="Design by Contract">
+                <img src="https://img.shields.io/badge/SCOOP-compatible-orange.svg" alt="SCOOP Compatible">
+            </div>
+        </header>
+
+        <section>
+            <h2>Overview</h2>
+            <p>
+                TOON is a compact, human-readable format designed to minimize token usage when sending
+                structured data to Large Language Models. simple_toon provides seamless conversion between
+                JSON and TOON formats, achieving <strong>30-60% token reduction</strong> while maintaining
+                lossless round-trip conversion.
+            </p>
+        </section>
+
+        <section>
+            <h2>Format Comparison</h2>
+            <div class="comparison">
+                <div>
+                    <h4>JSON (37 tokens)</h4>
+                    <pre><code>{
+  "name": "Alice",
+  "age": 30,
+  "active": true
+}</code></pre>
+                </div>
+                <div>
+                    <h4>TOON (15 tokens)</h4>
+                    <pre><code>name: Alice
+age: 30
+active: true</code></pre>
+                </div>
+            </div>
+            <div class="comparison" style="margin-top: 1rem;">
+                <div>
+                    <h4>JSON Array (85 tokens)</h4>
+                    <pre><code>[
+  {"sku": "A1", "name": "Widget", "price": 9.99},
+  {"sku": "B2", "name": "Gadget", "price": 14.50}
+]</code></pre>
+                </div>
+                <div>
+                    <h4>TOON Tabular (28 tokens)</h4>
+                    <pre><code>[2]{sku,name,price}:
+  A1,Widget,9.99
+  B2,Gadget,14.5</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Quick Start</h2>
+            <pre><code>local
+    toon: SIMPLE_TOON
+    json: SIMPLE_JSON
+    value: SIMPLE_JSON_VALUE
+    toon_text, json_text: STRING_32
+do
+    create toon.make
+    create json
+
+    -- Encode JSON to TOON
+    value := json.parse ("{%"name%": %"Alice%", %"age%": 30}")
+    toon_text := toon.encode (value)
+    -- Result: "name: Alice%Nage: 30"
+
+    -- Decode TOON to JSON
+    value := toon.decode ("name: Bob%Nage: 25")
+    json_text := value.to_json_string
+    -- Result: {"name":"Bob","age":25}
+
+    -- Check compression ratio
+    print ("Compression: " + (toon.compression_ratio (value) * 100).out + "%%")
+end</code></pre>
+        </section>
+
+        <section>
+            <h2>Core Classes</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>SIMPLE_TOON</h3>
+                    <p>Main facade class for encoding/decoding TOON format.</p>
+                    <pre><code>-- Encoding
+encode (json: SIMPLE_JSON_VALUE): STRING_32
+json_to_toon (json_text: STRING_32): STRING_32
+
+-- Decoding
+decode (toon_text: STRING_32): SIMPLE_JSON_VALUE
+toon_to_json (toon_text: STRING_32): STRING_32
+
+-- Configuration
+set_indent (spaces: INTEGER)
+set_delimiter (char: CHARACTER_32)
+set_strict_mode (enabled: BOOLEAN)
+
+-- Analysis
+compression_ratio (json: SIMPLE_JSON_VALUE): REAL_64
+is_tabular_eligible (json: SIMPLE_JSON_VALUE): BOOLEAN</code></pre>
+                </div>
+                <div class="card">
+                    <h3>SIMPLE_TOON_ERROR</h3>
+                    <p>Structured error information with position tracking.</p>
+                    <pre><code>message: STRING_32
+line: INTEGER
+column: INTEGER
+error_type: INTEGER
+to_string: STRING_32</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Decimal Precision</h2>
+            <p>
+                simple_toon integrates with <strong>simple_decimal</strong> and <strong>simple_json</strong>'s decimal support
+                to ensure exact number representation without floating-point artifacts.
+            </p>
+            <div class="comparison">
+                <div>
+                    <h4>Problem with REAL</h4>
+                    <pre><code>-- Using put_real
+obj.put_real (19.99, "price")
+-- JSON output: {"price": 19.989999999999998}
+-- TOON output: price: 19.989999999999998</code></pre>
+                </div>
+                <div>
+                    <h4>Solution with SIMPLE_DECIMAL</h4>
+                    <pre><code>-- Using put_decimal
+create price.make ("19.99")
+obj.put_decimal (price, "price")
+-- JSON output: {"price": 19.99}
+-- TOON output: price: 19.99</code></pre>
+                </div>
+            </div>
+            <p style="margin-top: 1rem;">
+                For financial data or any values requiring exact decimal representation, use
+                <code class="inline-code">put_decimal</code> with SIMPLE_DECIMAL instead of
+                <code class="inline-code">put_real</code>.
+            </p>
+        </section>
+
+        <section>
+            <h2>Configuration Options</h2>
+            <table>
+                <tr>
+                    <th>Option</th>
+                    <th>Method</th>
+                    <th>Values</th>
+                    <th>Default</th>
+                </tr>
+                <tr>
+                    <td>Indentation</td>
+                    <td><code class="inline-code">set_indent</code></td>
+                    <td>Any positive integer</td>
+                    <td>2 spaces</td>
+                </tr>
+                <tr>
+                    <td>Delimiter</td>
+                    <td><code class="inline-code">set_delimiter</code></td>
+                    <td><code class="inline-code">','</code>, <code class="inline-code">'%T'</code> (tab), <code class="inline-code">'|'</code></td>
+                    <td>Comma</td>
+                </tr>
+                <tr>
+                    <td>Strict Mode</td>
+                    <td><code class="inline-code">set_strict_mode</code></td>
+                    <td><code class="inline-code">True</code> / <code class="inline-code">False</code></td>
+                    <td>True</td>
+                </tr>
+            </table>
+        </section>
+
+        <section>
+            <h2>TOON Syntax Reference</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>Objects</h3>
+                    <pre><code>key: value
+nested:
+  inner_key: inner_value</code></pre>
+                </div>
+                <div class="card">
+                    <h3>Primitive Arrays</h3>
+                    <pre><code>[3]: red,green,blue</code></pre>
+                </div>
+                <div class="card">
+                    <h3>Tabular Arrays</h3>
+                    <pre><code>[2]{sku,qty,price}:
+  A1,10,9.99
+  B2,20,14.50</code></pre>
+                </div>
+                <div class="card">
+                    <h3>List Arrays</h3>
+                    <pre><code>[2]:
+  - id: 1
+    name: Alice
+  - id: 2
+    name: Bob</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>When to Use TOON</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>Best For</h3>
+                    <ul>
+                        <li>Uniform arrays of objects (product lists, records)</li>
+                        <li>Flat or shallow nested structures</li>
+                        <li>LLM prompt context optimization</li>
+                        <li>Reducing API costs</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Consider JSON For</h3>
+                    <ul>
+                        <li>Deeply nested structures</li>
+                        <li>Non-uniform data</li>
+                        <li>LLM output (models trained on JSON)</li>
+                        <li>Inter-service communication</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Installation</h2>
+            <pre><code># Set environment variable
+export SIMPLE_TOON=/path/to/simple_toon
+
+# Add to your ECF file
+&lt;library name="simple_toon" location="$SIMPLE_TOON/simple_toon.ecf"/&gt;</code></pre>
+        </section>
+
+        <section>
+            <h2>Resources</h2>
+            <ul>
+                <li><a href="https://github.com/simple-eiffel/simple_toon">GitHub Repository</a></li>
+                <li><a href="https://github.com/toon-format/spec">TOON Specification</a></li>
+                <li><a href="https://toonformat.dev/">TOON Format Website</a></li>
+            </ul>
+        </section>
+
+        <footer style="text-align: center; padding: 2rem 0; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 2rem;">
+            <p>Part of the <a href="https://github.com/simple-eiffel">Simple Eiffel</a> ecosystem</p>
+            <p>MIT License</p>
+        </footer>
+    </div>
+</body>
+</html>
