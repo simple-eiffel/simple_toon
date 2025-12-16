@@ -85,14 +85,14 @@ active: true
 
 ## Installation
 
-1. Set environment variable:
+1. Set the ecosystem environment variable (one-time setup for all simple_* libraries):
 ```bash
-export SIMPLE_TOON=/path/to/simple_toon
+export SIMPLE_EIFFEL=/path/to/prod
 ```
 
 2. Add to ECF:
 ```xml
-<library name="simple_toon" location="$SIMPLE_TOON/simple_toon.ecf"/>
+<library name="simple_toon" location="$SIMPLE_EIFFEL/simple_toon/simple_toon.ecf"/>
 ```
 
 ## Dependencies
