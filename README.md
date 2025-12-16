@@ -17,7 +17,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 
 ## Status
 
-**Production** - 25 tests passing
+**Production** - 35 tests passing
 
 ## Overview
 
@@ -133,6 +133,45 @@ toon.is_tabular_eligible (value)   -- Would benefit from tabular format?
 toon.compression_ratio (value)     -- Token savings ratio
 toon.token_estimate (value)        -- [json_tokens, toon_tokens]
 ```
+
+### Direct Builder (No JSON Required)
+
+Build TOON directly without creating JSON first using the fluent `TOON_BUILDER`:
+
+```eiffel
+local
+    builder: TOON_BUILDER
+    result: STRING_32
+do
+    create builder.make
+    result := builder
+        .add_string ("name", "Alice")
+        .add_integer ("age", 30)
+        .add_boolean ("active", True)
+        .start_array ("items", <<"sku", "qty", "price">>)
+            .row (<<"A1", "10", "9.99">>)
+            .row (<<"B2", "5", "19.99">>)
+        .end_array
+        .to_string
+    -- Result:
+    -- name: Alice
+    -- age: 30
+    -- active: true
+    -- items[2]{sku,qty,price}:
+    --   A1,10,9.99
+    --   B2,5,19.99
+end
+```
+
+**Builder Features:**
+- `add_string`, `add_integer`, `add_real`, `add_boolean`, `add_null` - Scalar values
+- `start_array`/`row`/`end_array` - Tabular arrays with column headers
+- `start_object`/`end_object` - Nested objects
+- `add_string_array`, `add_integer_array` - Simple scalar arrays
+- `set_indent`, `set_delimiter` - Configuration
+- `reset` - Clear and start fresh
+
+See [Cookbook](docs/cookbook.html) for complex real-world examples.
 
 ## When to Use TOON
 

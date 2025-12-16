@@ -66,6 +66,17 @@ feature {NONE} -- Test Runners
 			-- String conversion tests
 			run_test (agent lib_tests.test_json_to_toon_string, "test_json_to_toon_string")
 			run_test (agent lib_tests.test_toon_to_json_string, "test_toon_to_json_string")
+			-- TOON_BUILDER tests
+			run_test (agent lib_tests.test_builder_simple_object, "test_builder_simple_object")
+			run_test (agent lib_tests.test_builder_all_types, "test_builder_all_types")
+			run_test (agent lib_tests.test_builder_tabular_array, "test_builder_tabular_array")
+			run_test (agent lib_tests.test_builder_nested_object, "test_builder_nested_object")
+			run_test (agent lib_tests.test_builder_simple_arrays, "test_builder_simple_arrays")
+			run_test (agent lib_tests.test_builder_with_escaping, "test_builder_with_escaping")
+			run_test (agent lib_tests.test_builder_reset, "test_builder_reset")
+			run_test (agent lib_tests.test_builder_custom_delimiter, "test_builder_custom_delimiter")
+			run_test (agent lib_tests.test_builder_fluent_chain, "test_builder_fluent_chain")
+			run_test (agent lib_tests.test_builder_complex_structure, "test_builder_complex_structure")
 		end
 
 feature {NONE} -- Implementation

@@ -504,4 +504,196 @@ feature -- String Conversion Tests
 			end
 		end
 
+feature -- TOON_BUILDER Tests
+
+	test_builder_simple_object
+			-- Test building a simple object with TOON_BUILDER.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string ("name", "Alice")
+				.add_integer ("age", 30)
+				.add_boolean ("active", True)
+				.to_string
+
+			assert ("has name", l_result.has_substring ("name: Alice"))
+			assert ("has age", l_result.has_substring ("age: 30"))
+			assert ("has active", l_result.has_substring ("active: true"))
+		end
+
+	test_builder_all_types
+			-- Test building with all scalar types.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string ("str", "hello")
+				.add_integer ("int", 42)
+				.add_real ("real", 3.14)
+				.add_boolean ("bool", False)
+				.add_null ("nothing")
+				.to_string
+
+			assert ("has string", l_result.has_substring ("str: hello"))
+			assert ("has int", l_result.has_substring ("int: 42"))
+			assert ("has real", l_result.has_substring ("real: 3.14"))
+			assert ("has bool", l_result.has_substring ("bool: false"))
+			assert ("has null", l_result.has_substring ("nothing: null"))
+		end
+
+	test_builder_tabular_array
+			-- Test building a tabular array.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.start_array ("items", <<"sku", "qty">>)
+					.row (<<"A1", "10">>)
+					.row (<<"B2", "20">>)
+				.end_array
+				.to_string
+
+			assert ("has header", l_result.has_substring ("{sku,qty}"))
+			assert ("has count", l_result.has_substring ("[2]"))
+			assert ("has row1", l_result.has_substring ("A1,10"))
+			assert ("has row2", l_result.has_substring ("B2,20"))
+		end
+
+	test_builder_nested_object
+			-- Test building nested objects.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string ("name", "Bob")
+				.start_object ("address")
+					.add_string ("city", "NYC")
+					.add_string ("zip", "10001")
+				.end_object
+				.to_string
+
+			assert ("has name", l_result.has_substring ("name: Bob"))
+			assert ("has address", l_result.has_substring ("address:"))
+			assert ("has city indented", l_result.has_substring ("  city: NYC"))
+		end
+
+	test_builder_simple_arrays
+			-- Test building simple inline arrays.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string_array ("tags", <<"red", "green", "blue">>)
+				.add_integer_array ("nums", <<1, 2, 3>>)
+				.to_string
+
+			assert ("has tags", l_result.has_substring ("tags[3]: red,green,blue"))
+			assert ("has nums", l_result.has_substring ("nums[3]: 1,2,3"))
+		end
+
+	test_builder_with_escaping
+			-- Test builder handles values needing escaping.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string ("msg", "hello: world")
+				.add_string ("path", "C:\temp")
+				.to_string
+
+			assert ("colon escaped", l_result.has_substring ("%"hello: world%""))
+			assert ("backslash escaped", l_result.has_substring ("\\"))
+		end
+
+	test_builder_reset
+			-- Test builder reset/clear.
+		local
+			l_builder: TOON_BUILDER
+		do
+			create l_builder.make
+			l_builder.add_string ("test", "value").do_nothing
+
+			assert ("not empty", not l_builder.is_empty)
+
+			l_builder.reset.do_nothing
+
+			assert ("empty after reset", l_builder.is_empty)
+		end
+
+	test_builder_custom_delimiter
+			-- Test builder with custom delimiter.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.set_delimiter ('|')
+				.start_array ("data", <<"a", "b">>)
+					.row (<<"x", "y">>)
+				.end_array
+				.to_string
+
+			assert ("pipe header", l_result.has_substring ("{a|b}"))
+			assert ("pipe data", l_result.has_substring ("x|y"))
+		end
+
+	test_builder_fluent_chain
+			-- Test fluent chaining returns Current.
+		local
+			l_builder: TOON_BUILDER
+			l_same: TOON_BUILDER
+		do
+			create l_builder.make
+			l_same := l_builder
+				.set_indent (4)
+				.set_delimiter ('%T')
+				.add_string ("key", "value")
+
+			assert ("same builder", l_same = l_builder)
+		end
+
+	test_builder_complex_structure
+			-- Test building a complex nested structure.
+		local
+			l_builder: TOON_BUILDER
+			l_result: STRING_32
+		do
+			create l_builder.make
+			l_result := l_builder
+				.add_string ("type", "order")
+				.add_integer ("id", 12345)
+				.start_object ("customer")
+					.add_string ("name", "Alice Smith")
+					.add_string ("email", "alice@example.com")
+				.end_object
+				.start_array ("items", <<"sku", "name", "qty", "price">>)
+					.row (<<"SKU001", "Widget", "2", "9.99">>)
+					.row (<<"SKU002", "Gadget", "1", "19.99">>)
+					.row (<<"SKU003", "Gizmo", "5", "4.99">>)
+				.end_array
+				.add_real ("total", 64.92)
+				.add_boolean ("shipped", False)
+				.to_string
+
+			assert ("has type", l_result.has_substring ("type: order"))
+			assert ("has customer", l_result.has_substring ("customer:"))
+			assert ("has items header", l_result.has_substring ("{sku,name,qty,price}"))
+			assert ("has 3 items", l_result.has_substring ("[3]"))
+			assert ("has total", l_result.has_substring ("total: 64.92"))
+		end
+
 end
