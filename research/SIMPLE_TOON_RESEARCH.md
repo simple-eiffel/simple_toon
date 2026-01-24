@@ -1,5 +1,8 @@
 # simple_toon Research Notes
 
+
+**Date**: 2025-12-15
+
 ## Step 1: Specifications
 
 ### Formal TOON Definition
