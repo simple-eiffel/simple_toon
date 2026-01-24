@@ -1,0 +1,604 @@
+note
+	description: "[
+				TOON (Token-Oriented Object Notation) encoder/decoder for Eiffel.
+		
+				TOON is a compact, human-readable format that encodes JSON with minimal
+				quoting and explicit structure, achieving 30-60% token reduction for LLMs.
+		
+				Features:
+				- Encode JSON values to TOON format
+				- Decode TOON text back to JSON values
+				- Configurable indentation and delimiters
+				- Strict mode validation with detailed errors
+				- Token estimation and compression ratio calculation
+		
+				Usage:
+					local
+						toon: SIMPLE_TOON
+						json: SIMPLE_JSON
+						value: SIMPLE_JSON_VALUE
+						toon_text: STRING_32
+					do
+						create toon.make
+						create json
+						value := json.parse ("{%"name%": %"Alice%", %"age%": 30}")
+						if attached value then
+							toon_text := toon.encode (value)
+							-- Result: "name: Alice%Nage: 30"
+						end
+					end
+	]"
+	date: "$Date$"
+	revision: "$Revision$"
+	eis: "name=TOON Specification", "protocol=URI", "src=https://github.com/toon-format/spec"
+	eis: "name=TOON Format", "protocol=URI", "src=https://toonformat.dev/"
+
+class interface
+	SIMPLE_TOON
+
+create 
+	make
+			-- Initialize with default settings.
+		ensure
+			default_indent: indent = Default_indent
+			default_delimiter: delimiter = Default_delimiter
+			strict_by_default: is_strict
+			no_errors: not has_errors
+
+feature -- Access
+
+	generating_type: TYPE [detachable SIMPLE_TOON]
+			-- Type of current object
+			-- (type of which it is a direct instance)
+			-- (from ANY)
+		ensure -- from ANY
+			generating_type_not_void: Result /= Void
+
+	generator: STRING_8
+			-- Name of current object's generating class
+			-- (base class of the type of which it is a direct instance)
+			-- (from ANY)
+		ensure -- from ANY
+			generator_not_void: Result /= Void
+			generator_not_empty: not Result.is_empty
+	
+feature -- Comparison
+
+	frozen deep_equal (a: detachable ANY; b: like arg #1): BOOLEAN
+			-- Are `a` and `b` either both void
+			-- or attached to isomorphic object structures?
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+			shallow_implies_deep: standard_equal (a, b) implies Result
+			both_or_none_void: (a = Void) implies (Result = (b = Void))
+			same_type: (Result and (a /= Void)) implies (b /= Void and then a.same_type (b))
+			symmetric: Result implies deep_equal (b, a)
+
+	frozen equal (a: detachable ANY; b: like arg #1): BOOLEAN
+			-- Are `a` and `b` either both void or attached
+			-- to objects considered equal?
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+			definition: Result = (a = Void and b = Void) or else ((a /= Void and b /= Void) and then a.is_equal (b))
+
+	frozen is_deep_equal alias "≡≡≡" (other: SIMPLE_TOON): BOOLEAN
+			-- Are `Current` and `other` attached to isomorphic object structures?
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+		ensure -- from ANY
+			shallow_implies_deep: standard_is_equal (other) implies Result
+			same_type: Result implies same_type (other)
+			symmetric: Result implies other.is_deep_equal (Current)
+
+	is_equal (other: SIMPLE_TOON): BOOLEAN
+			-- Is `other` attached to an object considered
+			-- equal to current object?
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+		ensure -- from ANY
+			symmetric: Result implies other ~ Current
+			consistent: standard_is_equal (other) implies Result
+
+	frozen standard_equal (a: detachable ANY; b: like arg #1): BOOLEAN
+			-- Are `a` and `b` either both void or attached to
+			-- field-by-field identical objects of the same type?
+			-- Always uses default object comparison criterion.
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+			definition: Result = (a = Void and b = Void) or else ((a /= Void and b /= Void) and then a.standard_is_equal (b))
+
+	frozen standard_is_equal alias "≜" (other: SIMPLE_TOON): BOOLEAN
+			-- Is `other` attached to an object of the same type
+			-- as current object, and field-by-field identical to it?
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+		ensure -- from ANY
+			same_type: Result implies same_type (other)
+			symmetric: Result implies other.standard_is_equal (Current)
+	
+feature -- Status report
+
+	conforms_to (other: ANY): BOOLEAN
+			-- Does type of current object conform to type
+			-- of `other` (as per Eiffel: The Language, chapter 13)?
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+
+	same_type (other: ANY): BOOLEAN
+			-- Is type of current object identical to type of `other`?
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+		ensure -- from ANY
+			definition: Result = (conforms_to (other) and other.conforms_to (Current))
+	
+feature -- Duplication
+
+	copy (other: SIMPLE_TOON)
+			-- Update current object using fields of object attached
+			-- to `other`, so as to yield equal objects.
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+			type_identity: same_type (other)
+		ensure -- from ANY
+			is_equal: Current ~ other
+
+	frozen deep_copy (other: SIMPLE_TOON)
+			-- Effect equivalent to that of:
+			--		`copy` (`other` . `deep_twin`)
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+		ensure -- from ANY
+			deep_equal: deep_equal (Current, other)
+
+	frozen deep_twin: SIMPLE_TOON
+			-- New object structure recursively duplicated from Current.
+			-- (from ANY)
+		ensure -- from ANY
+			deep_twin_not_void: Result /= Void
+			deep_equal: deep_equal (Current, Result)
+
+	frozen standard_copy (other: SIMPLE_TOON)
+			-- Copy every field of `other` onto corresponding field
+			-- of current object.
+			-- (from ANY)
+		require -- from ANY
+			other_not_void: other /= Void
+			type_identity: same_type (other)
+		ensure -- from ANY
+			is_standard_equal: standard_is_equal (other)
+
+	frozen standard_twin: SIMPLE_TOON
+			-- New object field-by-field identical to `other`.
+			-- Always uses default copying semantics.
+			-- (from ANY)
+		ensure -- from ANY
+			standard_twin_not_void: Result /= Void
+			equal: standard_equal (Result, Current)
+
+	frozen twin: SIMPLE_TOON
+			-- New object equal to `Current`
+			-- `twin` calls `copy`; to change copying/twinning semantics, redefine `copy`.
+			-- (from ANY)
+		ensure -- from ANY
+			twin_not_void: Result /= Void
+			is_equal: Result ~ Current
+	
+feature -- Basic operations
+
+	frozen default: detachable SIMPLE_TOON
+			-- Default value of object's type
+			-- (from ANY)
+
+	frozen default_pointer: POINTER
+			-- Default value of type `POINTER`
+			-- (Avoid the need to write `p`.`default` for
+			-- some `p` of type `POINTER`.)
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+
+	default_rescue
+			-- Process exception for routines with no Rescue clause.
+			-- (Default: do nothing.)
+			-- (from ANY)
+
+	frozen do_nothing
+			-- Execute a null action.
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+	
+feature -- Analysis
+
+	compression_ratio (a_json: SIMPLE_JSON_VALUE): REAL_64
+			-- Ratio of TOON tokens to JSON tokens.
+			-- Value < 1.0 indicates token savings.
+			-- Example: 0.6 means 40% reduction.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			positive: Result >= 0.0
+
+	is_tabular_eligible (a_json: SIMPLE_JSON_VALUE): BOOLEAN
+			-- Would `a_json` benefit from tabular TOON encoding?
+			-- True if it's an array of uniform objects.
+		require
+			json_not_void: a_json /= Void
+
+	is_valid_toon (a_text: STRING_32): BOOLEAN
+			-- Is `a_text` valid TOON syntax?
+		require
+			not_empty: not a_text.is_empty
+
+	token_estimate (a_json: SIMPLE_JSON_VALUE): TUPLE [json_tokens: INTEGER_32; toon_tokens: INTEGER_32]
+			-- Estimate token counts for JSON vs TOON encoding.
+			-- Tokens estimated using GPT-4 tokenizer heuristics.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			result_attached: Result /= Void
+	
+feature -- Configuration
+
+	delimiter: CHARACTER_32
+			-- Array element delimiter
+
+	indent: INTEGER_32
+			-- Spaces per indentation level
+
+	is_strict: BOOLEAN
+			-- Is strict validation enabled?
+
+	set_delimiter (a_delimiter: CHARACTER_32)
+			-- Set array element delimiter.
+			-- Options: ',' (comma), '%T' (tab), '|' (pipe)
+		require
+			valid_delimiter: a_delimiter = ','.to_character_32 or a_delimiter = '%T'.to_character_32 or a_delimiter = '|'.to_character_32
+		ensure
+			delimiter_set: delimiter = a_delimiter
+
+	set_indent (a_spaces: INTEGER_32)
+			-- Set indentation spaces per level.
+			-- Default is 2 spaces.
+		require
+			positive: a_spaces > 0
+		ensure
+			indent_set: indent = a_spaces
+
+	set_strict (a_enabled: BOOLEAN)
+			-- Enable or disable strict validation mode.
+			-- Strict mode validates array counts, delimiter consistency, etc.
+			-- Was declared in {SIMPLE_TOON} as synonym of `set_strict_mode`.
+		ensure
+			strict_set: is_strict = a_enabled
+
+	set_strict_mode (a_enabled: BOOLEAN)
+			-- Enable or disable strict validation mode.
+			-- Strict mode validates array counts, delimiter consistency, etc.
+			-- Was declared in {SIMPLE_TOON} as synonym of `set_strict`.
+		ensure
+			strict_set: is_strict = a_enabled
+	
+feature -- Decoding (TOON to JSON)
+
+	decode (a_toon_text: STRING_32): detachable SIMPLE_JSON_VALUE
+			-- Parse TOON text and return JSON value.
+			-- Returns Void on parse error, populates `last_errors`.
+			-- Was declared in {SIMPLE_TOON} as synonym of `from_toon`, `deserialize` and `parse_toon`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			errors_transferred: decoder.errors.count <= last_errors.count
+
+	decode_to_string (a_toon_text: STRING_32): detachable STRING_32
+			-- Parse TOON and return JSON string.
+			-- Returns Void on parse error.
+			-- Was declared in {SIMPLE_TOON} as synonym of `toon_to_json`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			error_on_failure: Result = Void implies has_errors
+
+	deserialize (a_toon_text: STRING_32): detachable SIMPLE_JSON_VALUE
+			-- Parse TOON text and return JSON value.
+			-- Returns Void on parse error, populates `last_errors`.
+			-- Was declared in {SIMPLE_TOON} as synonym of `decode`, `from_toon` and `parse_toon`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			errors_transferred: decoder.errors.count <= last_errors.count
+
+	from_toon (a_toon_text: STRING_32): detachable SIMPLE_JSON_VALUE
+			-- Parse TOON text and return JSON value.
+			-- Returns Void on parse error, populates `last_errors`.
+			-- Was declared in {SIMPLE_TOON} as synonym of `decode`, `deserialize` and `parse_toon`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			errors_transferred: decoder.errors.count <= last_errors.count
+
+	parse_toon (a_toon_text: STRING_32): detachable SIMPLE_JSON_VALUE
+			-- Parse TOON text and return JSON value.
+			-- Returns Void on parse error, populates `last_errors`.
+			-- Was declared in {SIMPLE_TOON} as synonym of `decode`, `from_toon` and `deserialize`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			errors_transferred: decoder.errors.count <= last_errors.count
+
+	toon_to_json (a_toon_text: STRING_32): detachable STRING_32
+			-- Parse TOON and return JSON string.
+			-- Returns Void on parse error.
+			-- Was declared in {SIMPLE_TOON} as synonym of `decode_to_string`.
+		require
+			not_empty: not a_toon_text.is_empty
+		ensure
+			error_on_failure: Result = Void implies has_errors
+	
+feature -- Defaults
+
+	Default_delimiter: CHARACTER_32 = ','
+			-- Default array delimiter (comma)
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Default_indent: INTEGER_32 = 2
+			-- Default indentation (2 spaces)
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- Delimiters
+
+	Delimiter_comma: CHARACTER_32 = ','
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Delimiter_pipe: CHARACTER_32 = '|'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Delimiter_tab: CHARACTER_32 = '%T'
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- Encoding (JSON to TOON)
+
+	compress_for_llm (a_json: SIMPLE_JSON_VALUE): STRING_32
+			-- Convert JSON value to TOON format.
+			-- Returns compact TOON representation.
+			-- Was declared in {SIMPLE_TOON} as synonym of `encode`, `to_toon` and `serialize`.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			result_attached: Result /= Void
+
+	encode (a_json: SIMPLE_JSON_VALUE): STRING_32
+			-- Convert JSON value to TOON format.
+			-- Returns compact TOON representation.
+			-- Was declared in {SIMPLE_TOON} as synonym of `to_toon`, `serialize` and `compress_for_llm`.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			result_attached: Result /= Void
+
+	encode_string (a_json_text: STRING_32): detachable STRING_32
+			-- Parse JSON string and convert to TOON.
+			-- Returns Void on parse error.
+			-- Was declared in {SIMPLE_TOON} as synonym of `json_to_toon`.
+		require
+			not_empty: not a_json_text.is_empty
+		ensure
+			error_on_failure: Result = Void implies has_errors
+
+	json_to_toon (a_json_text: STRING_32): detachable STRING_32
+			-- Parse JSON string and convert to TOON.
+			-- Returns Void on parse error.
+			-- Was declared in {SIMPLE_TOON} as synonym of `encode_string`.
+		require
+			not_empty: not a_json_text.is_empty
+		ensure
+			error_on_failure: Result = Void implies has_errors
+
+	serialize (a_json: SIMPLE_JSON_VALUE): STRING_32
+			-- Convert JSON value to TOON format.
+			-- Returns compact TOON representation.
+			-- Was declared in {SIMPLE_TOON} as synonym of `encode`, `to_toon` and `compress_for_llm`.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			result_attached: Result /= Void
+
+	to_toon (a_json: SIMPLE_JSON_VALUE): STRING_32
+			-- Convert JSON value to TOON format.
+			-- Returns compact TOON representation.
+			-- Was declared in {SIMPLE_TOON} as synonym of `encode`, `serialize` and `compress_for_llm`.
+		require
+			json_not_void: a_json /= Void
+		ensure
+			result_attached: Result /= Void
+	
+feature -- Error Handling
+
+	clear_errors
+			-- Clear all errors
+		ensure
+			no_errors: not has_errors
+
+	error_count: INTEGER_32
+			-- Number of errors
+		ensure
+			definition: Result = last_errors.count
+
+	errors_as_string: STRING_32
+			-- All errors as formatted string
+
+	first_error: detachable SIMPLE_TOON_ERROR
+			-- First error, if any
+		ensure
+			has_error_implies_result: has_errors implies Result /= Void
+
+	has_errors: BOOLEAN
+			-- Were there errors during the last operation?
+		ensure
+			definition: Result = not last_errors.is_empty
+
+	last_errors: ARRAYED_LIST [SIMPLE_TOON_ERROR]
+			-- Errors from the last operation
+	
+feature -- Error Types
+
+	Error_type_count_mismatch: INTEGER_32 = 3
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Error_type_delimiter: INTEGER_32 = 2
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Error_type_indentation: INTEGER_32 = 6
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Error_type_invalid_escape: INTEGER_32 = 4
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Error_type_syntax: INTEGER_32 = 1
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Error_type_unterminated_string: INTEGER_32 = 5
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- Escape Sequences
+
+	Valid_escapes: STRING_32 = "\%"nrt"
+			-- Valid escape characters after backslash
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- File Operations
+
+	decode_file (a_toon_path, a_json_path: STRING_32): BOOLEAN
+			-- Read TOON file, write JSON file.
+			-- Returns True on success.
+		require
+			toon_path_not_empty: not a_toon_path.is_empty
+			json_path_not_empty: not a_json_path.is_empty
+		ensure
+			error_on_failure: not Result implies has_errors
+
+	encode_file (a_json_path, a_toon_path: STRING_32): BOOLEAN
+			-- Read JSON file, write TOON file.
+			-- Returns True on success.
+		require
+			json_path_not_empty: not a_json_path.is_empty
+			toon_path_not_empty: not a_toon_path.is_empty
+		ensure
+			error_on_failure: not Result implies has_errors
+	
+feature -- Keywords
+
+	Keyword_false: STRING_32 = "false"
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Keyword_null: STRING_32 = "null"
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Keyword_true: STRING_32 = "true"
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- Output
+
+	Io: STD_FILES
+			-- Handle to standard file setup
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+			io_not_void: Result /= Void
+
+	out: STRING_8
+			-- New string containing terse printable representation
+			-- of current object
+			-- (from ANY)
+		ensure -- from ANY
+			out_not_void: Result /= Void
+
+	print (o: detachable ANY)
+			-- Write terse external representation of `o`
+			-- on standard output.
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+
+	frozen tagged_out: STRING_8
+			-- New string containing terse printable representation
+			-- of current object
+			-- (from ANY)
+		ensure -- from ANY
+			tagged_out_not_void: Result /= Void
+	
+feature -- Patterns
+
+	Identifier_pattern: STRING_32 = "^[A-Za-z_][A-Za-z0-9_.]*$"
+			-- Pattern for unquoted keys
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Numeric_chars: STRING_32 = "0123456789.-+eE"
+			-- Characters that appear in numbers
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+feature -- Platform
+
+	Operating_environment: OPERATING_ENVIRONMENT
+			-- Objects available from the operating system
+			-- (from ANY)
+		ensure -- from ANY
+			instance_free: class
+			operating_environment_not_void: Result /= Void
+	
+feature -- Special Characters
+
+	Backslash: CHARACTER_32 = '\'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Close_brace: CHARACTER_32 = '}'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Close_bracket: CHARACTER_32 = ']'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Colon: CHARACTER_32 = ':'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Hyphen: CHARACTER_32 = '-'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Newline: CHARACTER_32 = '%N'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Open_brace: CHARACTER_32 = '{'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Open_bracket: CHARACTER_32 = '['
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Quote: CHARACTER_32 = '"'
+			-- (from SIMPLE_TOON_CONSTANTS)
+
+	Space: CHARACTER_32 = ' '
+			-- (from SIMPLE_TOON_CONSTANTS)
+	
+invariant
+	valid_indent: indent > 0
+	valid_delimiter: delimiter = ','.to_character_32 or delimiter = '%T'.to_character_32 or delimiter = '|'.to_character_32
+	errors_attached: last_errors /= Void
+	error_consistency: has_errors = not last_errors.is_empty
+	encoder_attached: encoder /= Void
+	decoder_attached: decoder /= Void
+
+		-- from ANY
+	reflexive_equality: standard_is_equal (Current)
+	reflexive_conformance: conforms_to (Current)
+
+end -- class SIMPLE_TOON
+
